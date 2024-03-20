@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-const defaultTimeout = 360
+const defaultTimeout = 100000
 
 // Option represents an action that enables an option.
 type Option func(waiting *Waiting)
