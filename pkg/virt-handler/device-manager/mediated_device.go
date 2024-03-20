@@ -154,7 +154,7 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 
 	mdevsMap := make(map[string][]*MDEV)
 	files, err := os.ReadDir(mdevBasePath)
-	log.DefaultLogger().Infof("found mediatd devices", files)
+	log.DefaultLogger().Infof("found mediatd devices, %s", files)
 	for _, info := range files {
 		if info.Type()&os.ModeSymlink == 0 {
 			continue
