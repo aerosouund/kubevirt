@@ -47,9 +47,6 @@ const (
 
 type Device interface {
 	Start(stop <-chan struct{}) error
-	ListAndWatch(*pluginapi.Empty, pluginapi.DevicePlugin_ListAndWatchServer) error
-	PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error)
-	Allocate(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error)
 	GetDeviceName() string
 	GetInitialized() bool
 }

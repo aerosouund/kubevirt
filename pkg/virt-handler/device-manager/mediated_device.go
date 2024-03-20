@@ -149,10 +149,12 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 }
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
+	log.DefaultLogger().Info("starting to search for mediated devices")
 	initHandler()
 
 	mdevsMap := make(map[string][]*MDEV)
 	files, err := os.ReadDir(mdevBasePath)
+	log.DefaultLogger().Infof("found mediatd devices", files)
 	for _, info := range files {
 		if info.Type()&os.ModeSymlink == 0 {
 			continue
