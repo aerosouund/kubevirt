@@ -35,6 +35,7 @@ type DevicePluginBase struct {
 }
 
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
+	log.DefaultLogger().Info("the base plugin start method is being called")
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
