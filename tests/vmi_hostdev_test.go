@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -52,7 +53,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 
 	Context("with ephemeral disk", func() {
 		DescribeTable("with emulated PCI devices", func(deviceIDs []string) {
-			// deviceName := "example.org/soundcard"
+			deviceName := "example.org/soundcard"
 
 			By("Adding the emulated sound card to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
@@ -62,22 +63,23 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 				},
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
-			// var hostDevs []v1.HostDevice
-			// for i, id := range deviceIDs {
-			// 	config.PermittedHostDevices.PciHostDevices = append(config.PermittedHostDevices.PciHostDevices, v1.PciHostDevice{
-			// 		PCIVendorSelector: id,
-			// 		ResourceName:      deviceName,
-			// 	})
-			// 	hostDevs = append(hostDevs, v1.HostDevice{
-			// 		Name:       fmt.Sprintf("sound%d", i),
-			// 		DeviceName: deviceName,
-			// 	})
-			// }
+			var hostDevs []v1.HostDevice
+			for i, id := range deviceIDs {
+				config.PermittedHostDevices.PciHostDevices = append(config.PermittedHostDevices.PciHostDevices, v1.PciHostDevice{
+					PCIVendorSelector: id,
+					ResourceName:      deviceName,
+				})
+				hostDevs = append(hostDevs, v1.HostDevice{
+					Name:       fmt.Sprintf("sound%d", i),
+					DeviceName: deviceName,
+				})
+				fmt.Println("appended device with id and name", id, deviceName)
+			}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
-			// randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
+			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
