@@ -92,6 +92,7 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 	for {
 		select {
 		case devHealth := <-dpi.health:
+			log.DefaultLogger().Infof("ammar: received a health event")
 			for _, dev := range dpi.devs {
 				if devHealth.DevId == dev.ID {
 					dev.Health = devHealth.Health
