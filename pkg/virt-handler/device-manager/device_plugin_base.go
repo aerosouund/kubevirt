@@ -179,6 +179,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 			}
 		case <-time.After(2 * time.Second):
 			logger.Infof("ammar: No event received for 2 seconds")
+			dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 		}
 	}
 }
