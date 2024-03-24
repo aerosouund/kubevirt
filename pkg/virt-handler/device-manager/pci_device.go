@@ -72,10 +72,7 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	DevicePluginBase
-	devicePath    string
-	resourceName  string
-	socketPath    string
-	deviceRoot    string
+	health        chan deviceHealth
 	iommuToPCIMap map[string]string
 }
 
@@ -90,15 +87,15 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: DevicePluginBase{
-			devs:        devs,
-			health:      make(chan deviceHealth),
-			initialized: false,
-			lock:        &sync.Mutex{},
+			devs:         devs,
+			initialized:  false,
+			lock:         &sync.Mutex{},
+			resourceName: resourceName,
+			socketPath:   serverSock,
+			devicePath:   vfioDevicePath,
+			deviceRoot:   util.HostRootMount,
 		},
-		resourceName:  resourceName,
-		socketPath:    serverSock,
-		devicePath:    vfioDevicePath,
-		deviceRoot:    util.HostRootMount,
+		health:        make(chan deviceHealth),
 		iommuToPCIMap: iommuToPCIMap,
 	}
 	logger.Infof("ammar: initiated pci device with info socketpath: %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
