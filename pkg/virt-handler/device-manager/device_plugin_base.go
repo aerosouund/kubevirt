@@ -177,6 +177,8 @@ func (dpi *DevicePluginBase) healthCheck() error {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
 				return nil
 			}
+		case <-time.After(2 * time.Second):
+			logger.Infof("ammar: No event received for 2 seconds")
 		}
 	}
 }
