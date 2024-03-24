@@ -183,6 +183,7 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 
 func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
+	log.DefaultLogger().Info("ammar: starting list and watch on pci plugin")
 
 	done := false
 	for {
