@@ -57,6 +57,7 @@ type PCIDevicePlugin struct {
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
+	logger := log.DefaultLogger()
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
 
@@ -78,6 +79,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	logger.Infof("ammar: initiated pci device with info socketpath: %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
 	return dpi
 }
 
@@ -174,6 +176,7 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	if err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
+	logger.Info("ammar: the method on the actual plugin is running")
 
 	for {
 		select {

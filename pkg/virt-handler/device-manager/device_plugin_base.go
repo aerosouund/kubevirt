@@ -35,7 +35,7 @@ type DevicePluginBase struct {
 }
 
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
-	log.DefaultLogger().Info("ammar: the base plugin start method is being called")
+	log.DefaultLogger().Infof("ammar: starting device with info : %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
@@ -75,7 +75,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 
 	dpi.setInitialized(true)
 	logger.Infof("ammar: %s device plugin started", dpi.resourceName)
-	// err = <-errChan
+	err = <-errChan
 
 	return err
 }
@@ -126,6 +126,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	logger.Infof("ammar: devpath ", devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
 	dirName := filepath.Dir(devicePath)
@@ -144,6 +145,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	logger.Infof("device '%s' is present.", dpi.devicePath)
 
 	dirName = filepath.Dir(dpi.socketPath)
+	logger.Infof("ammar: socket ", devicePath)
 
 	if err = watcher.Add(dirName); err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
@@ -153,6 +155,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
 
+	logger.Info("ammar: entering main loop")
 	for {
 		select {
 		case <-dpi.stop:
