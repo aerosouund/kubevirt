@@ -126,7 +126,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	logger.Infof("ammar: devpath ", devicePath)
+	logger.Infof("ammar: devpath %s", devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
 	dirName := filepath.Dir(devicePath)
@@ -145,7 +145,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	logger.Infof("device '%s' is present.", dpi.devicePath)
 
 	dirName = filepath.Dir(dpi.socketPath)
-	logger.Infof("ammar: socket ", devicePath)
+	logger.Infof("ammar: socket %s", devicePath)
 
 	if err = watcher.Add(dirName); err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
