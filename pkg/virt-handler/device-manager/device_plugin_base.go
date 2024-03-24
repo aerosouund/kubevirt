@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -33,51 +34,51 @@ type DevicePluginBase struct {
 	deviceName   string
 }
 
-// func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
-// 	log.DefaultLogger().Infof("ammar: starting device with info : %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
-// 	logger := log.DefaultLogger()
-// 	dpi.stop = stop
-// 	dpi.done = make(chan struct{})
-// 	dpi.deregistered = make(chan struct{})
+func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
+	log.DefaultLogger().Infof("ammar: starting device with info : %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
+	logger := log.DefaultLogger()
+	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
-// 	if err = dpi.cleanup(); err != nil {
-// 		return err
-// 	}
+	if err = dpi.cleanup(); err != nil {
+		return err
+	}
 
-// 	sock, err := net.Listen("unix", dpi.socketPath)
-// 	if err != nil {
-// 		return fmt.Errorf("error creating GRPC server socket: %v", err)
-// 	}
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
 
-// 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-// 	defer dpi.stopDevicePlugin()
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
 
-// 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 
-// 	errChan := make(chan error, 2)
+	errChan := make(chan error, 2)
 
-// 	go func() {
-// 		errChan <- dpi.server.Serve(sock)
-// 	}()
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
 
-// 	if waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
-// 		return fmt.Errorf("error starting the GRPC server: %v", err)
-// 	}
+	if waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
 
-// 	if err = dpi.register(); err != nil {
-// 		return fmt.Errorf("error registering with device plugin manager: %v", err)
-// 	}
+	if err = dpi.register(); err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
 
-// 	go func() {
-// 		errChan <- dpi.healthCheck()
-// 	}()
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
 
-// 	dpi.setInitialized(true)
-// 	logger.Infof("ammar: %s device plugin started", dpi.resourceName)
-// 	err = <-errChan
+	dpi.setInitialized(true)
+	logger.Infof("ammar: %s device plugin started", dpi.resourceName)
+	err = <-errChan
 
-// 	return err
-// }
+	return err
+}
 
 func (dpi *DevicePluginBase) GetDeviceName() string {
 	return dpi.resourceName
