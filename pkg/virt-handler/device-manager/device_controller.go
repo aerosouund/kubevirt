@@ -55,7 +55,7 @@ func (c *controlledDevice) Start() {
 	logger := log.DefaultLogger()
 	dev := c.devicePlugin
 	deviceName := dev.GetDeviceName()
-	logger.Infof("Starting a device plugin for device: %s", deviceName)
+	logger.Infof("ammar: Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
 	backoff := c.backoff
@@ -70,7 +70,7 @@ func (c *controlledDevice) Start() {
 				logger.Reason(err).Errorf("Error starting %s device plugin", deviceName)
 				retries = int(math.Min(float64(retries+1), float64(len(backoff)-1)))
 			} else {
-				log.DefaultLogger().Info("device started successfully")
+				log.DefaultLogger().Info("ammar: device started successfully")
 				retries = 0
 			}
 
@@ -354,7 +354,7 @@ func (c *DeviceController) refreshPermittedDevices() {
 }
 
 func (c *DeviceController) startDevice(resourceName string, dev Device) {
-	log.DefaultLogger().Info("device plugin starting from the unexported method")
+	log.DefaultLogger().Info("ammar: device plugin starting from the unexported method")
 	c.stopDevice(resourceName)
 	controlledDev := controlledDevice{
 		devicePlugin: dev,
