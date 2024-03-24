@@ -75,7 +75,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 
 	dpi.setInitialized(true)
 	logger.Infof("ammar: %s device plugin started", dpi.resourceName)
-	err = <-errChan
+	// err = <-errChan
 
 	return err
 }
