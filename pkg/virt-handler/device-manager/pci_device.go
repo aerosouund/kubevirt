@@ -57,17 +57,11 @@ type PCIDevice struct {
 
 // type PCIDevicePlugin struct {
 // 	devs          []*pluginapi.Device
-// 	server        *grpc.Server
 
 // 	stop          <-chan struct{}
 // 	health        chan deviceHealth
 
 // 	done          chan struct{}
-
-// 	iommuToPCIMap map[string]string
-// 	initialized   bool
-// 	lock          *sync.Mutex
-// 	deregistered  chan struct{}
 // }
 
 type PCIDevicePlugin struct {
@@ -75,7 +69,9 @@ type PCIDevicePlugin struct {
 	initialized   bool
 	deregistered  chan struct{}
 	stop          <-chan struct{}
+	done          chan struct{}
 	lock          *sync.Mutex
+	server        *grpc.Server
 	devs          []*pluginapi.Device
 	health        chan deviceHealth
 	iommuToPCIMap map[string]string
