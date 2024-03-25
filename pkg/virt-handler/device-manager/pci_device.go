@@ -73,6 +73,8 @@ type PCIDevice struct {
 type PCIDevicePlugin struct {
 	DevicePluginBase
 	initialized   bool
+	deregistered  chan struct{}
+	stop          <-chan struct{}
 	lock          *sync.Mutex
 	devs          []*pluginapi.Device
 	health        chan deviceHealth
