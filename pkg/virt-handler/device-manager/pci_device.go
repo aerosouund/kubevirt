@@ -56,7 +56,7 @@ type PCIDevice struct {
 }
 
 type PCIDevicePlugin struct {
-	DevicePluginBase
+	*DevicePluginBase
 	devs          []*pluginapi.Device
 	server        *grpc.Server
 	socketPath    string
@@ -80,11 +80,13 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 	dpi := &PCIDevicePlugin{
+		DevicePluginBase: &DevicePluginBase{
+			socketPath:   serverSock,
+			resourceName: resourceName,
+			devicePath:   vfioDevicePath,
+			deviceRoot:   util.HostRootMount,
+		},
 		devs:          devs,
-		socketPath:    serverSock,
-		resourceName:  resourceName,
-		devicePath:    vfioDevicePath,
-		deviceRoot:    util.HostRootMount,
 		iommuToPCIMap: iommuToPCIMap,
 		health:        make(chan deviceHealth),
 		initialized:   false,
