@@ -81,11 +81,11 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
-			health:      make(chan deviceHealth),
-			initialized: false,
-			lock:        &sync.Mutex{},
+			socketPath: serverSock,
 		},
-		socketPath:    serverSock,
+		health:        make(chan deviceHealth),
+		initialized:   false,
+		lock:          &sync.Mutex{},
 		resourceName:  resourceName,
 		devicePath:    vfioDevicePath,
 		deviceRoot:    util.HostRootMount,
