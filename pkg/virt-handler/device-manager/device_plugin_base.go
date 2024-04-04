@@ -86,7 +86,7 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-	log.DefaultLogger().Infof("ammar: starting list and watch with devices", dpi.devs)
+	log.DefaultLogger().Infof("ammar: starting list and watch with devices %s", dpi.devs)
 
 	done := false
 	for {
