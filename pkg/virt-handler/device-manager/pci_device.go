@@ -347,25 +347,25 @@ func (dpi *PCIDevicePlugin) register() error {
 	return nil
 }
 
-func (dpi *PCIDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
+// func (dpi *PCIDevicePlugin) cleanup() error {
+// 	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}
-	return options, nil
-}
+// func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+// 	options := &pluginapi.DevicePluginOptions{
+// 		PreStartRequired: false,
+// 	}
+// 	return options, nil
+// }
 
-func (dpi *PCIDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	res := &pluginapi.PreStartContainerResponse{}
-	return res, nil
-}
+// func (dpi *PCIDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+// 	res := &pluginapi.PreStartContainerResponse{}
+// 	return res, nil
+// }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	initHandler()
