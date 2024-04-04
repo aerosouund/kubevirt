@@ -60,7 +60,7 @@ type PCIDevicePlugin struct {
 	// devs   []*pluginapi.Device
 	server *grpc.Server
 	stop   <-chan struct{}
-	health chan deviceHealth
+	// health chan deviceHealth
 	// devicePath    string
 	// resourceName  string
 	done chan struct{}
@@ -87,8 +87,8 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			devicePath:   vfioDevicePath,
 			resourceName: resourceName,
 			deviceRoot:   util.HostRootMount,
+			health:       make(chan deviceHealth),
 		},
-		health:        make(chan deviceHealth),
 		iommuToPCIMap: iommuToPCIMap,
 	}
 	return dpi
