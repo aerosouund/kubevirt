@@ -57,11 +57,11 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	devs          []*pluginapi.Device
-	server        *grpc.Server
-	stop          <-chan struct{}
-	health        chan deviceHealth
-	devicePath    string
+	devs   []*pluginapi.Device
+	server *grpc.Server
+	stop   <-chan struct{}
+	health chan deviceHealth
+	// devicePath    string
 	resourceName  string
 	done          chan struct{}
 	deviceRoot    string
@@ -83,11 +83,11 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			initialized: false,
 			lock:        &sync.Mutex{},
 			socketPath:  serverSock,
+			devicePath:  vfioDevicePath,
 		},
 		health: make(chan deviceHealth),
 
 		resourceName: resourceName,
-		devicePath:   vfioDevicePath,
 
 		deviceRoot:    util.HostRootMount,
 		devs:          devs,
