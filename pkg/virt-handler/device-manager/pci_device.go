@@ -63,8 +63,8 @@ type PCIDevicePlugin struct {
 	health chan deviceHealth
 	// devicePath    string
 	// resourceName  string
-	done          chan struct{}
-	deviceRoot    string
+	done chan struct{}
+	// deviceRoot    string
 	iommuToPCIMap map[string]string
 	// initialized   bool
 	// lock          *sync.Mutex
@@ -85,10 +85,9 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			socketPath:   serverSock,
 			devicePath:   vfioDevicePath,
 			resourceName: resourceName,
+			deviceRoot:   util.HostRootMount,
 		},
-		health: make(chan deviceHealth),
-
-		deviceRoot:    util.HostRootMount,
+		health:        make(chan deviceHealth),
 		devs:          devs,
 		iommuToPCIMap: iommuToPCIMap,
 	}
