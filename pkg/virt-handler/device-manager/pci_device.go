@@ -21,6 +21,7 @@ package device_manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -220,83 +222,83 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 	return resp, nil
 }
 
-// func (dpi *PCIDevicePlugin) healthCheck() error {
-// 	logger := log.DefaultLogger()
-// 	monitoredDevices := make(map[string]string)
-// 	watcher, err := fsnotify.NewWatcher()
-// 	if err != nil {
-// 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
-// 	}
-// 	defer watcher.Close()
+func (dpi *PCIDevicePlugin) healthCheck() error {
+	logger := log.DefaultLogger()
+	monitoredDevices := make(map[string]string)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+	}
+	defer watcher.Close()
 
-// 	// This way we don't have to mount /dev from the node
-// 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	// This way we don't have to mount /dev from the node
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
-// 	// Start watching the files before we check for their existence to avoid races
-// 	dirName := filepath.Dir(devicePath)
-// 	err = watcher.Add(dirName)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
-// 	}
+	// Start watching the files before we check for their existence to avoid races
+	dirName := filepath.Dir(devicePath)
+	err = watcher.Add(dirName)
+	if err != nil {
+		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+	}
 
-// 	_, err = os.Stat(devicePath)
-// 	if err != nil {
-// 		if !errors.Is(err, os.ErrNotExist) {
-// 			return fmt.Errorf("could not stat the device: %v", err)
-// 		}
-// 	}
+	_, err = os.Stat(devicePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("could not stat the device: %v", err)
+		}
+	}
 
-// 	// probe all devices
-// 	for _, dev := range dpi.devs {
-// 		vfioDevice := filepath.Join(devicePath, dev.ID)
-// 		err = watcher.Add(vfioDevice)
-// 		if err != nil {
-// 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-// 		}
-// 		monitoredDevices[vfioDevice] = dev.ID
-// 	}
+	// probe all devices
+	for _, dev := range dpi.devs {
+		vfioDevice := filepath.Join(devicePath, dev.ID)
+		err = watcher.Add(vfioDevice)
+		if err != nil {
+			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
+		}
+		monitoredDevices[vfioDevice] = dev.ID
+	}
 
-// 	dirName = filepath.Dir(dpi.socketPath)
-// 	err = watcher.Add(dirName)
+	dirName = filepath.Dir(dpi.socketPath)
+	err = watcher.Add(dirName)
 
-// 	if err != nil {
-// 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-// 	}
-// 	_, err = os.Stat(dpi.socketPath)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-// 	}
+	if err != nil {
+		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
+	}
+	_, err = os.Stat(dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
+	}
 
-// 	for {
-// 		select {
-// 		case <-dpi.stop:
-// 			return nil
-// 		case err := <-watcher.Errors:
-// 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
-// 		case event := <-watcher.Events:
-// 			logger.V(4).Infof("health Event: %v", event)
-// 			if monDevId, exist := monitoredDevices[event.Name]; exist {
-// 				// Health in this case is if the device path actually exists
-// 				if event.Op == fsnotify.Create {
-// 					logger.Infof("monitored device %s appeared", dpi.resourceName)
-// 					dpi.health <- deviceHealth{
-// 						DevId:  monDevId,
-// 						Health: pluginapi.Healthy,
-// 					}
-// 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-// 					logger.Infof("monitored device %s disappeared", dpi.resourceName)
-// 					dpi.health <- deviceHealth{
-// 						DevId:  monDevId,
-// 						Health: pluginapi.Unhealthy,
-// 					}
-// 				}
-// 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-// 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
-// 				return nil
-// 			}
-// 		}
-// 	}
-// }
+	for {
+		select {
+		case <-dpi.stop:
+			return nil
+		case err := <-watcher.Errors:
+			logger.Reason(err).Errorf("error watching devices and device plugin directory")
+		case event := <-watcher.Events:
+			logger.V(4).Infof("health Event: %v", event)
+			if monDevId, exist := monitoredDevices[event.Name]; exist {
+				// Health in this case is if the device path actually exists
+				if event.Op == fsnotify.Create {
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Healthy,
+					}
+				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Unhealthy,
+					}
+				}
+			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
+				return nil
+			}
+		}
+	}
+}
 
 // func (dpi *PCIDevicePlugin) GetDeviceName() string {
 // 	return dpi.resourceName
