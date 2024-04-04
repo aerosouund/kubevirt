@@ -300,9 +300,9 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	}
 }
 
-func (dpi *PCIDevicePlugin) GetDeviceName() string {
-	return dpi.resourceName
-}
+// func (dpi *PCIDevicePlugin) GetDeviceName() string {
+// 	return dpi.resourceName
+// }
 
 // Stop stops the gRPC server
 func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
@@ -408,14 +408,14 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 	return pciDevicesMap
 }
 
-func (dpi *PCIDevicePlugin) GetInitialized() bool {
-	dpi.lock.Lock()
-	defer dpi.lock.Unlock()
-	return dpi.initialized
-}
+// func (dpi *PCIDevicePlugin) GetInitialized() bool {
+// 	dpi.lock.Lock()
+// 	defer dpi.lock.Unlock()
+// 	return dpi.initialized
+// }
 
-func (dpi *PCIDevicePlugin) setInitialized(initialized bool) {
-	dpi.lock.Lock()
-	dpi.initialized = initialized
-	dpi.lock.Unlock()
-}
+// func (dpi *PCIDevicePlugin) setInitialized(initialized bool) {
+// 	dpi.lock.Lock()
+// 	dpi.initialized = initialized
+// 	dpi.lock.Unlock()
+// }
