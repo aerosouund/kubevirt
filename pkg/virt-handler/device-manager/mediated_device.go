@@ -54,18 +54,11 @@ type MDEV struct {
 }
 
 type MediatedDevicePlugin struct {
-	devs           []*pluginapi.Device
+	*DevicePluginBase
 	server         *grpc.Server
-	socketPath     string
 	stop           <-chan struct{}
-	health         chan deviceHealth
-	devicePath     string
-	resourceName   string
 	done           chan struct{}
-	deviceRoot     string
 	iommuToMDEVMap map[string]string
-	initialized    bool
-	lock           *sync.Mutex
 	deregistered   chan struct{}
 }
 
@@ -79,15 +72,17 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 	dpi := &MediatedDevicePlugin{
-		devs:           devs,
-		socketPath:     serverSock,
-		health:         make(chan deviceHealth),
-		resourceName:   resourceName,
-		devicePath:     vfioDevicePath,
-		deviceRoot:     util.HostRootMount,
+		DevicePluginBase: &DevicePluginBase{
+			devs:         devs,
+			socketPath:   serverSock,
+			resourceName: resourceName,
+			devicePath:   vfioDevicePath,
+			deviceRoot:   util.HostRootMount,
+			initialized:  false,
+			lock:         &sync.Mutex{},
+			health:       make(chan deviceHealth),
+		},
 		iommuToMDEVMap: iommuToMDEVMap,
-		initialized:    false,
-		lock:           &sync.Mutex{},
 	}
 
 	return dpi
@@ -162,9 +157,9 @@ func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-func (dpi *MediatedDevicePlugin) GetDeviceName() string {
-	return dpi.resourceName
-}
+// func (dpi *MediatedDevicePlugin) GetDeviceName() string {
+// 	return dpi.resourceName
+// }
 
 func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
@@ -256,57 +251,57 @@ func (dpi *MediatedDevicePlugin) register() error {
 	return nil
 }
 
-func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
+// func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
+// 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 
-	done := false
-	for {
-		select {
-		case devHealth := <-dpi.health:
-			for _, dev := range dpi.devs {
-				if devHealth.DevId == dev.ID {
-					dev.Health = devHealth.Health
-				}
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
-	// There exists no explicit way to deregister devices
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
-	}
-	close(dpi.deregistered)
-	return nil
-}
+// 	done := false
+// 	for {
+// 		select {
+// 		case devHealth := <-dpi.health:
+// 			for _, dev := range dpi.devs {
+// 				if devHealth.DevId == dev.ID {
+// 					dev.Health = devHealth.Health
+// 				}
+// 			}
+// 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
+// 		case <-dpi.stop:
+// 			done = true
+// 		case <-dpi.done:
+// 			done = true
+// 		}
+// 		if done {
+// 			break
+// 		}
+// 	}
+// 	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
+// 	// There exists no explicit way to deregister devices
+// 	emptyList := []*pluginapi.Device{}
+// 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
+// 		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
+// 	}
+// 	close(dpi.deregistered)
+// 	return nil
+// }
 
-func (dpi *MediatedDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
+// func (dpi *MediatedDevicePlugin) cleanup() error {
+// 	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}
-	return options, nil
-}
+// func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+// 	options := &pluginapi.DevicePluginOptions{
+// 		PreStartRequired: false,
+// 	}
+// 	return options, nil
+// }
 
-func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	res := &pluginapi.PreStartContainerResponse{}
-	return res, nil
-}
+// func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+// 	res := &pluginapi.PreStartContainerResponse{}
+// 	return res, nil
+// }
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
 	initHandler()
@@ -459,14 +454,14 @@ func getMdevTypeName(mdevUUID string) (string, error) {
 	return typeNameStr, nil
 }
 
-func (dpi *MediatedDevicePlugin) GetInitialized() bool {
-	dpi.lock.Lock()
-	defer dpi.lock.Unlock()
-	return dpi.initialized
-}
+// func (dpi *MediatedDevicePlugin) GetInitialized() bool {
+// 	dpi.lock.Lock()
+// 	defer dpi.lock.Unlock()
+// 	return dpi.initialized
+// }
 
-func (dpi *MediatedDevicePlugin) setInitialized(initialized bool) {
-	dpi.lock.Lock()
-	dpi.initialized = initialized
-	dpi.lock.Unlock()
-}
+// func (dpi *MediatedDevicePlugin) setInitialized(initialized bool) {
+// 	dpi.lock.Lock()
+// 	dpi.initialized = initialized
+// 	dpi.lock.Unlock()
+// }
