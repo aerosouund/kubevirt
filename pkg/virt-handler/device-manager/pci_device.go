@@ -25,11 +25,9 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
@@ -305,47 +303,47 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 // }
 
 // Stop stops the gRPC server
-func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
-	defer func() {
-		if !IsChanClosed(dpi.done) {
-			close(dpi.done)
-		}
-	}()
+// func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
+// 	defer func() {
+// 		if !IsChanClosed(dpi.done) {
+// 			close(dpi.done)
+// 		}
+// 	}()
 
-	// Give the device plugin one second to properly deregister
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	select {
-	case <-dpi.deregistered:
-	case <-ticker.C:
-	}
+// 	// Give the device plugin one second to properly deregister
+// 	ticker := time.NewTicker(1 * time.Second)
+// 	defer ticker.Stop()
+// 	select {
+// 	case <-dpi.deregistered:
+// 	case <-ticker.C:
+// 	}
 
-	dpi.server.Stop()
-	dpi.setInitialized(false)
-	return dpi.cleanup()
-}
+// 	dpi.server.Stop()
+// 	dpi.setInitialized(false)
+// 	return dpi.cleanup()
+// }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *PCIDevicePlugin) register() error {
-	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
+// func (dpi *PCIDevicePlugin) register() error {
+// 	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer conn.Close()
 
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: dpi.resourceName,
-	}
+// 	client := pluginapi.NewRegistrationClient(conn)
+// 	reqt := &pluginapi.RegisterRequest{
+// 		Version:      pluginapi.Version,
+// 		Endpoint:     path.Base(dpi.socketPath),
+// 		ResourceName: dpi.resourceName,
+// 	}
 
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	_, err = client.Register(context.Background(), reqt)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 // func (dpi *PCIDevicePlugin) cleanup() error {
 // 	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
