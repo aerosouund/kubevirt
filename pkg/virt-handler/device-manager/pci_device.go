@@ -67,9 +67,9 @@ type PCIDevicePlugin struct {
 	done          chan struct{}
 	deviceRoot    string
 	iommuToPCIMap map[string]string
-	initialized   bool
-	lock          *sync.Mutex
-	deregistered  chan struct{}
+	// initialized   bool
+	// lock          *sync.Mutex
+	deregistered chan struct{}
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
