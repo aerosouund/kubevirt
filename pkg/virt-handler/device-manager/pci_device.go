@@ -82,10 +82,10 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			initialized: false,
+			lock:        &sync.Mutex{},
 		},
 		health: make(chan deviceHealth),
 
-		lock:         &sync.Mutex{},
 		socketPath:   serverSock,
 		resourceName: resourceName,
 		devicePath:   vfioDevicePath,
