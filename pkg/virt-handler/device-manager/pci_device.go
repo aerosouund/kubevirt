@@ -23,12 +23,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -52,8 +54,53 @@ type PCIDevice struct {
 }
 
 type PCIDevicePlugin struct {
-	DevicePluginBase
+	*DevicePluginBase
 	iommuToPCIMap map[string]string
+}
+
+func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
+	logger := log.DefaultLogger()
+	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
+
+	if err = dpi.cleanup(); err != nil {
+		return err
+	}
+
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
+
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
+
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
+	errChan := make(chan error, 2)
+
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
+
+	if waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	if err = dpi.register(); err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
+
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
+
+	dpi.setInitialized(true)
+	logger.Infof("%s device plugin started", dpi.resourceName)
+	err = <-errChan
+
+	return err
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
@@ -65,7 +112,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 
 	dpi := &PCIDevicePlugin{
-		DevicePluginBase: DevicePluginBase{
+		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
 			socketPath:   serverSock,
 			health:       make(chan deviceHealth),
