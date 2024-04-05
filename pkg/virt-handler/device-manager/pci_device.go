@@ -86,9 +86,6 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			resourceName: resourceName,
 			deviceRoot:   util.HostRootMount,
 			health:       make(chan deviceHealth),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-			server:       grpc.NewServer([]grpc.ServerOption{}...),
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
