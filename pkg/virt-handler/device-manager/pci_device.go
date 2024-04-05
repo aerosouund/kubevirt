@@ -56,18 +56,11 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	// devs   []*pluginapi.Device
-	server *grpc.Server
-	stop   <-chan struct{}
-	// health chan deviceHealth
-	// devicePath    string
-	// resourceName  string
-	done chan struct{}
-	// deviceRoot    string
+	server        *grpc.Server
+	stop          <-chan struct{}
+	done          chan struct{}
 	iommuToPCIMap map[string]string
-	// initialized   bool
-	// lock          *sync.Mutex
-	deregistered chan struct{}
+	deregistered  chan struct{}
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
@@ -299,10 +292,6 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	}
 }
 
-// func (dpi *PCIDevicePlugin) GetDeviceName() string {
-// 	return dpi.resourceName
-// }
-
 // Stop stops the gRPC server
 func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
 	defer func() {
@@ -323,48 +312,6 @@ func (dpi *PCIDevicePlugin) stopDevicePlugin() error {
 	dpi.setInitialized(false)
 	return dpi.cleanup()
 }
-
-// Register registers the device plugin for the given resourceName with Kubelet.
-// func (dpi *PCIDevicePlugin) register() error {
-// 	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer conn.Close()
-
-// 	client := pluginapi.NewRegistrationClient(conn)
-// 	reqt := &pluginapi.RegisterRequest{
-// 		Version:      pluginapi.Version,
-// 		Endpoint:     path.Base(dpi.socketPath),
-// 		ResourceName: dpi.resourceName,
-// 	}
-
-// 	_, err = client.Register(context.Background(), reqt)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (dpi *PCIDevicePlugin) cleanup() error {
-// 	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-// 	options := &pluginapi.DevicePluginOptions{
-// 		PreStartRequired: false,
-// 	}
-// 	return options, nil
-// }
-
-// func (dpi *PCIDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-// 	res := &pluginapi.PreStartContainerResponse{}
-// 	return res, nil
-// }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	initHandler()
@@ -406,15 +353,3 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 	}
 	return pciDevicesMap
 }
-
-// func (dpi *PCIDevicePlugin) GetInitialized() bool {
-// 	dpi.lock.Lock()
-// 	defer dpi.lock.Unlock()
-// 	return dpi.initialized
-// }
-
-// func (dpi *PCIDevicePlugin) setInitialized(initialized bool) {
-// 	dpi.lock.Lock()
-// 	dpi.initialized = initialized
-// 	dpi.lock.Unlock()
-// }
