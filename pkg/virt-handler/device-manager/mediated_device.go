@@ -54,11 +54,18 @@ type MDEV struct {
 }
 
 type MediatedDevicePlugin struct {
-	*DevicePluginBase
+	devs           []*pluginapi.Device
 	server         *grpc.Server
+	socketPath     string
 	stop           <-chan struct{}
+	health         chan deviceHealth
+	devicePath     string
+	resourceName   string
 	done           chan struct{}
+	deviceRoot     string
 	iommuToMDEVMap map[string]string
+	initialized    bool
+	lock           *sync.Mutex
 	deregistered   chan struct{}
 }
 
@@ -72,17 +79,15 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 	dpi := &MediatedDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         devs,
-			socketPath:   serverSock,
-			resourceName: resourceName,
-			devicePath:   vfioDevicePath,
-			deviceRoot:   util.HostRootMount,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			health:       make(chan deviceHealth),
-		},
+		devs:           devs,
+		socketPath:     serverSock,
+		health:         make(chan deviceHealth),
+		resourceName:   resourceName,
+		devicePath:     vfioDevicePath,
+		deviceRoot:     util.HostRootMount,
 		iommuToMDEVMap: iommuToMDEVMap,
+		initialized:    false,
+		lock:           &sync.Mutex{},
 	}
 
 	return dpi
@@ -157,9 +162,9 @@ func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-// func (dpi *MediatedDevicePlugin) GetDeviceName() string {
-// 	return dpi.resourceName
-// }
+func (dpi *MediatedDevicePlugin) GetDeviceName() string {
+	return dpi.resourceName
+}
 
 func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
@@ -283,25 +288,25 @@ func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.De
 	return nil
 }
 
-// func (dpi *MediatedDevicePlugin) cleanup() error {
-// 	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-// 		return err
-// 	}
+func (dpi *MediatedDevicePlugin) cleanup() error {
+	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
-// func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-// 	options := &pluginapi.DevicePluginOptions{
-// 		PreStartRequired: false,
-// 	}
-// 	return options, nil
-// }
+func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+	options := &pluginapi.DevicePluginOptions{
+		PreStartRequired: false,
+	}
+	return options, nil
+}
 
-// func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-// 	res := &pluginapi.PreStartContainerResponse{}
-// 	return res, nil
-// }
+func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+	res := &pluginapi.PreStartContainerResponse{}
+	return res, nil
+}
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
 	initHandler()
@@ -430,9 +435,6 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
-		case <-time.After(2 * time.Second):
-			logger.Infof("ammar: No event received for 2 seconds")
-			dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 		}
 	}
 }
@@ -457,14 +459,14 @@ func getMdevTypeName(mdevUUID string) (string, error) {
 	return typeNameStr, nil
 }
 
-// func (dpi *MediatedDevicePlugin) GetInitialized() bool {
-// 	dpi.lock.Lock()
-// 	defer dpi.lock.Unlock()
-// 	return dpi.initialized
-// }
+func (dpi *MediatedDevicePlugin) GetInitialized() bool {
+	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
+	return dpi.initialized
+}
 
-// func (dpi *MediatedDevicePlugin) setInitialized(initialized bool) {
-// 	dpi.lock.Lock()
-// 	dpi.initialized = initialized
-// 	dpi.lock.Unlock()
-// }
+func (dpi *MediatedDevicePlugin) setInitialized(initialized bool) {
+	dpi.lock.Lock()
+	dpi.initialized = initialized
+	dpi.lock.Unlock()
+}
