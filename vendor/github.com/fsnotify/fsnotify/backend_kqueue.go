@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"golang.org/x/sys/unix"
+	"kubevirt.io/client-go/log"
 )
 
 // Watcher watches a set of paths, delivering events on a channel.
@@ -133,6 +134,7 @@ type pathInfo struct {
 
 // NewWatcher creates a new Watcher.
 func NewWatcher() (*Watcher, error) {
+	log.DefaultLogger().Info("hello from watcher")
 	kq, closepipe, err := newKqueue()
 	if err != nil {
 		return nil, err
