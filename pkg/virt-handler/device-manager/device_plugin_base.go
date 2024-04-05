@@ -198,6 +198,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	logger.Infof("ammar: devpath %s", devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
 	dirName := filepath.Dir(devicePath)
@@ -216,6 +217,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	// probe all devices
 	for _, dev := range dpi.devs {
 		vfioDevice := filepath.Join(devicePath, dev.ID)
+		logger.Infof("ammar: vfio device %s", vfioDevice)
 		err = watcher.Add(vfioDevice)
 		if err != nil {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
@@ -224,6 +226,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	}
 
 	dirName = filepath.Dir(dpi.socketPath)
+	logger.Infof("ammar: socket %s", devicePath)
 	err = watcher.Add(dirName)
 
 	if err != nil {
@@ -261,6 +264,8 @@ func (dpi *DevicePluginBase) healthCheck() error {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
+		case <-time.After(2 * time.Second):
+			logger.Infof("ammar: No event received for 2 seconds from the watcher")
 		}
 	}
 }
