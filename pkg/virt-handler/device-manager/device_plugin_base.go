@@ -120,8 +120,76 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 	return nil
 }
 
+// func (dpi *DevicePluginBase) healthCheck() error {
+// 	logger := log.DefaultLogger()
+// 	watcher, err := fsnotify.NewWatcher()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+// 	}
+// 	defer watcher.Close()
+
+// 	// This way we don't have to mount /dev from the node
+// 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+// 	logger.Infof("ammar: devpath %s", devicePath)
+
+// 	// Start watching the files before we check for their existence to avoid races
+// 	dirName := filepath.Dir(devicePath)
+
+// 	if err = watcher.Add(dirName); err != nil {
+// 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+// 	}
+
+// 	if _, err = os.Stat(devicePath); err != nil {
+// 		if !errors.Is(err, os.ErrNotExist) {
+// 			return fmt.Errorf("could not stat the device: %v", err)
+// 		}
+// 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
+// 		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+// 	}
+// 	logger.Infof("device '%s' is present.", dpi.devicePath)
+
+// 	dirName = filepath.Dir(dpi.socketPath)
+// 	logger.Infof("ammar: socket %s", devicePath)
+
+// 	if err = watcher.Add(dirName); err != nil {
+// 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
+// 	}
+
+// 	if _, err = os.Stat(dpi.socketPath); err != nil {
+// 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
+// 	}
+
+// 	logger.Info("ammar: entering main loop")
+// 	for {
+// 		select {
+// 		case <-dpi.stop:
+// 			return nil
+// 		case err := <-watcher.Errors:
+// 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
+// 		case event := <-watcher.Events:
+// 			logger.V(4).Infof("health Event: %v", event)
+// 			if event.Name == devicePath {
+// 				// Health in this case is if the device path actually exists
+// 				if event.Op == fsnotify.Create {
+// 					logger.Infof("monitored device %s appeared", dpi.deviceName)
+// 					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
+// 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
+// 					logger.Infof("monitored device %s disappeared", dpi.deviceName)
+// 					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+// 				}
+// 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
+// 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+// 				return nil
+// 			}
+// 		case <-time.After(2 * time.Second):
+// 			logger.Infof("ammar: No event received for 2 seconds")
+// 		}
+// 	}
+// }
+
 func (dpi *DevicePluginBase) healthCheck() error {
 	logger := log.DefaultLogger()
+	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
@@ -130,36 +198,42 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	logger.Infof("ammar: devpath %s", devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
 	dirName := filepath.Dir(devicePath)
-
-	if err = watcher.Add(dirName); err != nil {
+	err = watcher.Add(dirName)
+	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
 
-	if _, err = os.Stat(devicePath); err != nil {
+	_, err = os.Stat(devicePath)
+	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
-		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
-		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 	}
-	logger.Infof("device '%s' is present.", dpi.devicePath)
+
+	// probe all devices
+	for _, dev := range dpi.devs {
+		vfioDevice := filepath.Join(devicePath, dev.ID)
+		err = watcher.Add(vfioDevice)
+		if err != nil {
+			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
+		}
+		monitoredDevices[vfioDevice] = dev.ID
+	}
 
 	dirName = filepath.Dir(dpi.socketPath)
-	logger.Infof("ammar: socket %s", devicePath)
+	err = watcher.Add(dirName)
 
-	if err = watcher.Add(dirName); err != nil {
+	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}
-
-	if _, err = os.Stat(dpi.socketPath); err != nil {
+	_, err = os.Stat(dpi.socketPath)
+	if err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
 
-	logger.Info("ammar: entering main loop")
 	for {
 		select {
 		case <-dpi.stop:
@@ -168,22 +242,25 @@ func (dpi *DevicePluginBase) healthCheck() error {
 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
 		case event := <-watcher.Events:
 			logger.V(4).Infof("health Event: %v", event)
-			if event.Name == devicePath {
+			if monDevId, exist := monitoredDevices[event.Name]; exist {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.deviceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Healthy,
+					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.deviceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					dpi.health <- deviceHealth{
+						DevId:  monDevId,
+						Health: pluginapi.Unhealthy,
+					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
-		case <-time.After(2 * time.Second):
-			logger.Infof("ammar: No event received for 2 seconds")
-			dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 		}
 	}
 }
