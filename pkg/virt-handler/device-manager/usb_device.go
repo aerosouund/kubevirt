@@ -139,22 +139,6 @@ func (plugin *USBDevicePlugin) devicesToKubeVirtDevicePlugin() []*pluginapi.Devi
 	return devices
 }
 
-func (plugin *USBDevicePlugin) GetInitialized() bool {
-	plugin.lock.Lock()
-	defer plugin.lock.Unlock()
-	return plugin.initialized
-}
-
-func (plugin *USBDevicePlugin) setInitialized(initialized bool) {
-	plugin.lock.Lock()
-	plugin.initialized = initialized
-	plugin.lock.Unlock()
-}
-
-func (plugin *USBDevicePlugin) GetDeviceName() string {
-	return plugin.resourceName
-}
-
 func (plugin *USBDevicePlugin) stopDevicePlugin() error {
 	defer func() {
 		select {

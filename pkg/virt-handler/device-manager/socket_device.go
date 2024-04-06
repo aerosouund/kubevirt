@@ -73,10 +73,6 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int)
 	return dpi
 }
 
-func (dpi *SocketDevicePlugin) GetDeviceName() string {
-	return dpi.socketName
-}
-
 // Start starts the device plugin
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()

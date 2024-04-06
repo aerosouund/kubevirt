@@ -22,6 +22,7 @@ package device_manager
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"context"
 
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -50,8 +52,56 @@ type MDEV struct {
 }
 
 type MediatedDevicePlugin struct {
-	DevicePluginBase
+	*DevicePluginBase
 	iommuToMDEVMap map[string]string
+}
+
+func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
+	logger := log.DefaultLogger()
+	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
+
+	err = dpi.cleanup()
+	if err != nil {
+		return err
+	}
+
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
+
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
+
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
+	errChan := make(chan error, 2)
+
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
+
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
+	if err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	err = dpi.register()
+	if err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
+
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
+
+	dpi.setInitialized(true)
+	logger.Infof("%s device plugin started", dpi.resourceName)
+	err = <-errChan
+
+	return err
 }
 
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
@@ -65,7 +115,7 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 
 	dpi := &MediatedDevicePlugin{
-		DevicePluginBase: DevicePluginBase{
+		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
 			socketPath:   serverSock,
 			health:       make(chan deviceHealth),
@@ -191,7 +241,7 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 	return mdevsMap
 }
 
-func (dpi *MediatedDevicePlugin) HealthCheck() error {
+func (dpi *MediatedDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
