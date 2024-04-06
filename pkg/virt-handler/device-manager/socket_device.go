@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,7 +42,7 @@ import (
 )
 
 type SocketDevicePlugin struct {
-	DevicePluginBase
+	*DevicePluginBase
 	pluginSocketPath string
 	socketDir        string
 	socket           string
@@ -52,7 +51,7 @@ type SocketDevicePlugin struct {
 
 func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int) *SocketDevicePlugin {
 	dpi := &SocketDevicePlugin{
-		DevicePluginBase: DevicePluginBase{
+		DevicePluginBase: &DevicePluginBase{
 			health:       make(chan deviceHealth),
 			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
 			initialized:  false,
@@ -120,28 +119,6 @@ func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	err = <-errChan
 
 	return err
-}
-
-// Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *SocketDevicePlugin) register() error {
-	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(dpi.pluginSocketPath),
-		ResourceName: dpi.resourceName,
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {

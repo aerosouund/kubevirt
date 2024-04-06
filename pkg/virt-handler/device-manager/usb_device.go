@@ -70,7 +70,7 @@ func (dev *USBDevice) GetID() string {
 
 // The actual plugin
 type USBDevicePlugin struct {
-	DevicePluginBase
+	*DevicePluginBase
 	update  chan struct{}
 	devices []*PluginDevices
 	logger  *log.FilteredLogger
@@ -544,7 +544,7 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 	}
 	resourceID = fmt.Sprintf("usb-%s", resourceID)
 	return &USBDevicePlugin{
-		DevicePluginBase: DevicePluginBase{
+		DevicePluginBase: &DevicePluginBase{
 			socketPath:   SocketPath(resourceID),
 			resourceName: resourceName,
 			initialized:  false,
