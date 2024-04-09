@@ -46,6 +46,7 @@ const (
 	pciBasePath    = "/sys/bus/pci/devices"
 )
 
+type healthFunc func() error
 type PCIDevice struct {
 	pciID      string
 	driver     string
@@ -83,6 +84,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	dpi.healthcheck = dpi.healthCheck
 	return dpi
 }
 
@@ -145,7 +147,7 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	}
 
 	go func() {
-		errChan <- dpi.healthCheck() // this method will be called by whoever calls start
+		errChan <- dpi.DevicePluginBase.healthcheck() // this method will be called by whoever calls start
 	}()
 
 	dpi.setInitialized(true)

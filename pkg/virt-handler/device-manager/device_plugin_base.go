@@ -32,6 +32,7 @@ type DevicePluginBase struct {
 	devicePath   string
 	deviceRoot   string
 	deviceName   string
+	healthcheck  healthFunc
 }
 
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
