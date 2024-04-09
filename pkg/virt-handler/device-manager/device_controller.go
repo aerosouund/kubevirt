@@ -66,6 +66,7 @@ func (c *controlledDevice) Start() {
 	go func() {
 		for {
 			err := dev.Start(stop)
+			log.DefaultLogger().Info("ammar: start has exited")
 			if err != nil {
 				logger.Reason(err).Errorf("Error starting %s device plugin", deviceName)
 				retries = int(math.Min(float64(retries+1), float64(len(backoff)-1)))
@@ -87,6 +88,7 @@ func (c *controlledDevice) Start() {
 
 	c.stopChan = stop
 	c.started = true
+	log.DefaultLogger().Info("ammar: parent start has exited")
 }
 
 func (c *controlledDevice) Stop() {
