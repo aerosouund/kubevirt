@@ -71,7 +71,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	}
 
 	go func() {
-		errChan <- dpi.healthCheck()
+		errChan <- dpi.healthcheck()
 	}()
 
 	dpi.setInitialized(true)
