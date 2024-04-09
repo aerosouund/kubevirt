@@ -60,18 +60,22 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 
 	go func() {
 		errChan <- dpi.server.Serve(sock)
+		logger.Info("ammar: dpi server wrote to the error channel")
 	}()
 
-	if waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
+	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
+	if err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
 
-	if err = dpi.register(); err != nil {
+	err = dpi.register()
+	if err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
 
 	go func() {
-		errChan <- dpi.healthcheck()
+		errChan <- dpi.healthcheck() // this method will be called by whoever calls start
+		logger.Info("ammar: health wrote to the error channel")
 	}()
 
 	dpi.setInitialized(true)
