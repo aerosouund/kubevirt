@@ -76,7 +76,7 @@ func (c *controlledDevice) Start() {
 			}
 
 			select {
-			case <-stop:
+			case <-time.After(4 * time.Second):
 				// Ok we don't want to re-register
 				logger.Info("ammar: im exiting because the stop channel is readable")
 				return
