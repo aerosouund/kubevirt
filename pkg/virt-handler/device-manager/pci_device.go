@@ -155,38 +155,6 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-
-	done := false
-	for {
-		select {
-		case devHealth := <-dpi.health:
-			for _, dev := range dpi.devs {
-				if devHealth.DevId == dev.ID {
-					dev.Health = devHealth.Health
-				}
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
-	// There exists no explicit way to deregister devices
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
-	}
-	close(dpi.deregistered)
-	return nil
-}
-
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
