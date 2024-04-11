@@ -364,3 +364,10 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 	}
 	return pciDevicesMap
 }
+
+func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+	options := &pluginapi.DevicePluginOptions{
+		PreStartRequired: false,
+	}
+	return options, nil
+}
