@@ -75,15 +75,15 @@ func (c *controlledDevice) Start() {
 				retries = 0
 			}
 
-			select {
-			case <-time.After(4 * time.Second):
-				// Ok we don't want to re-register
-				logger.Info("ammar: im exiting because the stop channel is readable")
-				return
-			case <-time.After(backoff[retries]):
-				// Wait a little and re-register
-				continue
-			}
+			// select {
+			// case <-time.After(4 * time.Second):
+			// 	// Ok we don't want to re-register
+			// 	logger.Info("ammar: im exiting because the stop channel is readable")
+			// 	return
+			// case <-time.After(backoff[retries]):
+			// 	// Wait a little and re-register
+			// 	continue
+			// }
 		}
 	}()
 
