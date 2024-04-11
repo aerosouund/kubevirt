@@ -33,6 +33,7 @@ type DevicePluginBase struct {
 	deviceRoot   string
 	deviceName   string
 	healthcheck  healthFunc
+	parentPlugin *PCIDevicePlugin
 }
 
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
@@ -51,7 +52,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 	defer dpi.stopDevicePlugin()
 
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi.parentPlugin)
 
 	errChan := make(chan error, 2)
 

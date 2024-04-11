@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -56,11 +55,11 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	server        *grpc.Server
-	stop          <-chan struct{}
-	done          chan struct{}
+	// server        *grpc.Server
+	// stop          <-chan struct{}
+	// done          chan struct{}
 	iommuToPCIMap map[string]string
-	deregistered  chan struct{}
+	// deregistered  chan struct{}
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
