@@ -39,9 +39,6 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	log.DefaultLogger().Infof("ammar: starting device with info : %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
 	logger := log.DefaultLogger()
 	dpi.stop = stop
-	dpi.done = make(chan struct{})
-	dpi.deregistered = make(chan struct{})
-
 	if err = dpi.cleanup(); err != nil {
 		return err
 	}
@@ -80,7 +77,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 
 	dpi.setInitialized(true)
 	logger.Infof("ammar: %s device plugin started", dpi.resourceName)
-	// err = <-errChan
+	err = <-errChan
 	logger.Info("ammar: we are not stuck on reading from the error channel")
 
 	return err
