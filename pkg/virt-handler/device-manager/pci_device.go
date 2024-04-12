@@ -127,6 +127,7 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	log.DefaultLogger().Info("calling allocate pci device plugin")
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
