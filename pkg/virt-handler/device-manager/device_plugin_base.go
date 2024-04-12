@@ -89,9 +89,8 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 
 func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) error {
 	logger := log.DefaultLogger()
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
 
+	defer dpi.stopDevicePlugin()
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	go func() {
 		errChan <- dpi.server.Serve(sock)

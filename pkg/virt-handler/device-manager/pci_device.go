@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -70,6 +71,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
 			initialized:  false,
+			server:       grpc.NewServer([]grpc.ServerOption{}...),
 			lock:         &sync.Mutex{},
 			socketPath:   serverSock,
 			devicePath:   vfioDevicePath,
