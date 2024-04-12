@@ -84,8 +84,6 @@ type PluginDevices struct {
 
 func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
 	plugin.stop = stop
-	plugin.done = make(chan struct{})
-	plugin.deregistered = make(chan struct{})
 
 	err := plugin.cleanup()
 	if err != nil {
@@ -100,32 +98,8 @@ func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
 	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
 	defer plugin.stopDevicePlugin()
 
-	pluginapi.RegisterDevicePluginServer(plugin.server, plugin)
-
 	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- plugin.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(plugin.socketPath, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = plugin.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- plugin.healthCheck()
-	}()
-
-	plugin.setInitialized(true)
-	plugin.logger.Infof("%s device plugin started", plugin.resourceName)
-	err = <-errChan
-
+	err = plugin.extraStart(errChan, sock)
 	return err
 }
 
@@ -606,14 +580,19 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 		resourceID = s[1]
 	}
 	resourceID = fmt.Sprintf("usb-%s", resourceID)
-	return &USBDevicePlugin{
+	usb := &USBDevicePlugin{
 		DevicePluginBase: DevicePluginBase{
 			socketPath:   SocketPath(resourceID),
 			resourceName: resourceName,
 			initialized:  false,
 			lock:         &sync.Mutex{},
+			health:       make(chan deviceHealth),
+			done:         make(chan struct{}),
+			deregistered: make(chan struct{}),
 		},
 		devices: pluginDevices,
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
+	usb.allocfunc = usb.Allocate
+	return usb
 }
