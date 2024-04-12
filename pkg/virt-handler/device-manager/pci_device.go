@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -109,56 +111,30 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 }
 
 // Start starts the device plugin
-// func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
-// 	logger := log.DefaultLogger()
-// 	dpi.stop = stop
-// 	dpi.done = make(chan struct{})
-// 	dpi.deregistered = make(chan struct{})
+func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 
-// 	err = dpi.cleanup()
-// 	if err != nil {
-// 		return err
-// 	}
+	dpi.stop = stop
 
-// 	sock, err := net.Listen("unix", dpi.socketPath)
-// 	if err != nil {
-// 		return fmt.Errorf("error creating GRPC server socket: %v", err)
-// 	}
+	err = dpi.cleanup()
+	if err != nil {
+		return err
+	}
 
-// 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-// 	defer dpi.stopDevicePlugin()
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
 
-// 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
 
-// 	errChan := make(chan error, 2)
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 
-// 	go func() {
-// 		errChan <- dpi.server.Serve(sock)
-// 		logger.Info("ammar: dpi server wrote to the error channel")
-// 	}()
+	errChan := make(chan error, 2)
+	err = dpi.extraStart(errChan, sock)
+	return err
 
-// 	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-// 	if err != nil {
-// 		return fmt.Errorf("error starting the GRPC server: %v", err)
-// 	}
-
-// 	err = dpi.register()
-// 	if err != nil {
-// 		return fmt.Errorf("error registering with device plugin manager: %v", err)
-// 	}
-
-// 	go func() {
-// 		errChan <- dpi.DevicePluginBase.healthcheck() // this method will be called by whoever calls start
-// 		logger.Info("ammar: health wrote to the error channel")
-// 	}()
-
-// 	dpi.setInitialized(true)
-// 	logger.Infof("%s device plugin started", dpi.resourceName)
-// 	err = <-errChan
-// 	logger.Info("ammar: we are not stuck on reading from the error channel on the plugin itself")
-
-// 	return err
-// }
+}
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)

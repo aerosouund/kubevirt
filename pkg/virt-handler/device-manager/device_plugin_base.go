@@ -88,6 +88,36 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 	return dpi.resourceName
 }
 
+func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) error {
+	logger := log.DefaultLogger()
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+		logger.Info("ammar: dpi server wrote to the error channel")
+	}()
+
+	err := waitForGRPCServer(dpi.socketPath, connectionTimeout)
+	if err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	err = dpi.register()
+	if err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
+
+	go func() {
+		errChan <- dpi.healthcheck() // this method will be called by whoever calls start
+		logger.Info("ammar: health wrote to the error channel")
+	}()
+
+	dpi.setInitialized(true)
+	logger.Infof("%s device plugin started", dpi.resourceName)
+	err = <-errChan
+	logger.Info("ammar: we are not stuck on reading from the error channel on the plugin itself")
+
+	return err
+}
+
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 	log.DefaultLogger().Infof("ammar: starting list and watch with devices %s", dpi.devs)
