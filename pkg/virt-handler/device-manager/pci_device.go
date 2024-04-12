@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -57,11 +56,7 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	// server        *grpc.Server
-	// stop          <-chan struct{}
-	// done          chan struct{}
 	iommuToPCIMap map[string]string
-	// deregistered  chan struct{}
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
@@ -112,9 +107,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 
 // Start starts the device plugin
 func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
-
 	dpi.stop = stop
-
 	err = dpi.cleanup()
 	if err != nil {
 		return err
@@ -125,15 +118,9 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 		return fmt.Errorf("error creating GRPC server socket: %v", err)
 	}
 
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
 	errChan := make(chan error, 2)
 	err = dpi.extraStart(errChan, sock)
 	return err
-
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
