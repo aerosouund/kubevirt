@@ -119,6 +119,7 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	if err != nil {
 		return fmt.Errorf("error creating GRPC server socket: %v", err)
 	}
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 
 	errChan := make(chan error, 2)
 	err = dpi.extraStart(errChan, sock)

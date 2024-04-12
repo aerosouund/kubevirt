@@ -91,7 +91,7 @@ func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) e
 	logger := log.DefaultLogger()
 
 	defer dpi.stopDevicePlugin()
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
 	go func() {
 		errChan <- dpi.server.Serve(sock)
 		logger.Info("ammar: dpi server wrote to the error channel")
