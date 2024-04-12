@@ -47,6 +47,7 @@ const (
 )
 
 type healthFunc func() error
+type allocateFunc func(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error)
 type PCIDevice struct {
 	pciID      string
 	driver     string
@@ -84,6 +85,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		iommuToPCIMap: iommuToPCIMap,
 	}
 	dpi.healthcheck = dpi.healthCheck
+	dpi.allocfunc = dpi.Allocate
 	return dpi
 }
 
@@ -119,7 +121,6 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	if err != nil {
 		return fmt.Errorf("error creating GRPC server socket: %v", err)
 	}
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 
 	errChan := make(chan error, 2)
 	err = dpi.extraStart(errChan, sock)

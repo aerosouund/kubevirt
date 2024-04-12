@@ -24,6 +24,7 @@ type DevicePluginBase struct {
 	socketPath   string
 	stop         <-chan struct{}
 	health       chan deviceHealth
+	allocfunc    allocateFunc
 	resourceName string
 	done         chan struct{}
 	initialized  bool
@@ -89,7 +90,7 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 
 func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) error {
 	logger := log.DefaultLogger()
-
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	defer dpi.stopDevicePlugin()
 
 	go func() {
@@ -252,19 +253,7 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
-	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
-	response := pluginapi.AllocateResponse{}
-	containerResponse := new(pluginapi.ContainerAllocateResponse)
-
-	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = dpi.devicePath
-	dev.ContainerPath = dpi.devicePath
-	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
-
-	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
-
-	return &response, nil
+	return dpi.allocfunc(ctx, r)
 }
 
 func (dpi *DevicePluginBase) stopDevicePlugin() error {
