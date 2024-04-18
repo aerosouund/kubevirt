@@ -577,5 +577,6 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
 	usb.registerFunc = usb.registerServer
+	usb.healthcheck = usb.healthCheck
 	return usb
 }
