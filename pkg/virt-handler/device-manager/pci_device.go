@@ -23,7 +23,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +46,7 @@ const (
 )
 
 type healthFunc func() error
+type registerFunc func()
 type allocateFunc func(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error)
 type PCIDevice struct {
 	pciID      string
@@ -85,7 +85,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		iommuToPCIMap: iommuToPCIMap,
 	}
 	dpi.healthcheck = dpi.healthCheck
-	dpi.allocfunc = dpi.Allocate
+	dpi.registerFunc = dpi.registerServer
 	return dpi
 }
 
@@ -110,21 +110,25 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 }
 
 // Start starts the device plugin
-func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	dpi.stop = stop
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
+// func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
+// 	dpi.stop = stop
+// 	err = dpi.cleanup()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
+// 	sock, err := net.Listen("unix", dpi.socketPath)
+// 	if err != nil {
+// 		return fmt.Errorf("error creating GRPC server socket: %v", err)
+// 	}
 
-	errChan := make(chan error, 2)
-	err = dpi.extraStart(errChan, sock)
-	return err
+// 	errChan := make(chan error, 2)
+// 	err = dpi.extraStart(errChan, sock)
+// 	return err
+// }
+
+func (dpi *PCIDevicePlugin) registerServer() {
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 }
 
 func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {

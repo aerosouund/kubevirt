@@ -82,26 +82,26 @@ type PluginDevices struct {
 	Devices   []*USBDevice
 }
 
-func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
-	plugin.stop = stop
+// func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
+// 	plugin.stop = stop
 
-	err := plugin.cleanup()
-	if err != nil {
-		return fmt.Errorf("error on cleanup: %v", err)
-	}
+// 	err := plugin.cleanup()
+// 	if err != nil {
+// 		return fmt.Errorf("error on cleanup: %v", err)
+// 	}
 
-	sock, err := net.Listen("unix", plugin.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
+// 	sock, err := net.Listen("unix", plugin.socketPath)
+// 	if err != nil {
+// 		return fmt.Errorf("error creating GRPC server socket: %v", err)
+// 	}
 
-	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer plugin.stopDevicePlugin()
+// 	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
+// 	defer plugin.stopDevicePlugin()
 
-	errChan := make(chan error, 2)
-	err = plugin.extraStart(errChan, sock)
-	return err
-}
+// 	errChan := make(chan error, 2)
+// 	err = plugin.extraStart(errChan, sock)
+// 	return err
+// }
 
 func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *PluginDevices {
 	return &PluginDevices{
@@ -573,6 +573,10 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	return plugins
 }
 
+func (dpi *USBDevicePlugin) registerServer() {
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+}
+
 func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *USBDevicePlugin {
 	s := strings.Split(resourceName, "/")
 	resourceID := s[0]
@@ -593,6 +597,6 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 		devices: pluginDevices,
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
-	usb.allocfunc = usb.Allocate
+	usb.registerFunc = usb.registerServer
 	return usb
 }

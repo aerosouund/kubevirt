@@ -19,12 +19,13 @@ import (
 )
 
 type DevicePluginBase struct {
-	devs         []*pluginapi.Device
-	server       *grpc.Server
-	socketPath   string
-	stop         <-chan struct{}
-	health       chan deviceHealth
-	allocfunc    allocateFunc
+	devs       []*pluginapi.Device
+	server     *grpc.Server
+	socketPath string
+	stop       <-chan struct{}
+	health     chan deviceHealth
+	// allocfunc    allocateFunc
+	registerFunc registerFunc
 	resourceName string
 	done         chan struct{}
 	initialized  bool
@@ -52,7 +53,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 	defer dpi.stopDevicePlugin()
 
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+	dpi.registerFunc()
 
 	errChan := make(chan error, 2)
 
@@ -88,38 +89,38 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 	return dpi.resourceName
 }
 
-func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) error {
-	logger := log.DefaultLogger()
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-	defer dpi.stopDevicePlugin()
+// func (dpi *DevicePluginBase) extraStart(errChan chan error, sock net.Listener) error {
+// 	logger := log.DefaultLogger()
+// 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+// 	defer dpi.stopDevicePlugin()
 
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-		logger.Info("ammar: dpi server wrote to the error channel")
-	}()
+// 	go func() {
+// 		errChan <- dpi.server.Serve(sock)
+// 		logger.Info("ammar: dpi server wrote to the error channel")
+// 	}()
 
-	err := waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
+// 	err := waitForGRPCServer(dpi.socketPath, connectionTimeout)
+// 	if err != nil {
+// 		return fmt.Errorf("error starting the GRPC server: %v", err)
+// 	}
 
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
+// 	err = dpi.register()
+// 	if err != nil {
+// 		return fmt.Errorf("error registering with device plugin manager: %v", err)
+// 	}
 
-	go func() {
-		errChan <- dpi.healthcheck() // this method will be called by whoever calls start
-		logger.Info("ammar: health wrote to the error channel")
-	}()
+// 	go func() {
+// 		errChan <- dpi.healthcheck() // this method will be called by whoever calls start
+// 		logger.Info("ammar: health wrote to the error channel")
+// 	}()
 
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-	logger.Info("ammar: we are not stuck on reading from the error channel on the plugin itself")
+// 	dpi.setInitialized(true)
+// 	logger.Infof("%s device plugin started", dpi.resourceName)
+// 	err = <-errChan
+// 	logger.Info("ammar: we are not stuck on reading from the error channel on the plugin itself")
 
-	return err
-}
+// 	return err
+// }
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
@@ -252,9 +253,9 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 	return options, nil
 }
 
-func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	return dpi.allocfunc(ctx, r)
-}
+// func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+// 	return dpi.allocfunc(ctx, r)
+// }
 
 func (dpi *DevicePluginBase) stopDevicePlugin() error {
 	defer func() {
