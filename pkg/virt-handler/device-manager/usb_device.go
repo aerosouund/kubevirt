@@ -82,27 +82,6 @@ type PluginDevices struct {
 	Devices   []*USBDevice
 }
 
-// func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
-// 	plugin.stop = stop
-
-// 	err := plugin.cleanup()
-// 	if err != nil {
-// 		return fmt.Errorf("error on cleanup: %v", err)
-// 	}
-
-// 	sock, err := net.Listen("unix", plugin.socketPath)
-// 	if err != nil {
-// 		return fmt.Errorf("error creating GRPC server socket: %v", err)
-// 	}
-
-// 	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
-// 	defer plugin.stopDevicePlugin()
-
-// 	errChan := make(chan error, 2)
-// 	err = plugin.extraStart(errChan, sock)
-// 	return err
-// }
-
 func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *PluginDevices {
 	return &PluginDevices{
 		ID:        fmt.Sprintf("%s-%s-%d", resourceName, rand.String(4), index),
