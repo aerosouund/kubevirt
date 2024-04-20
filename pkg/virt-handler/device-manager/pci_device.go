@@ -148,10 +148,6 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
 	}
 	defer watcher.Close()
-	defer func() {
-		logger.Info("ammar: healthcheck is exiting")
-	}()
-
 	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
@@ -201,13 +197,13 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("ammar: monitored device %s appeared", dpi.resourceName)
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Healthy,
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("ammar: monitored device %s disappeared", dpi.resourceName)
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
@@ -217,9 +213,6 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
-		case <-time.After(2 * time.Second):
-			logger.Infof("ammar: No event received for 2 seconds")
-
 		}
 	}
 }
