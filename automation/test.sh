@@ -20,6 +20,7 @@
 set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
+export TARGET=k8s-1.28-sig-compute
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
@@ -345,7 +346,7 @@ if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
-ginko_params="--no-color --seed=42"
+ginko_params="--no-color --seed=42 -focus-file=vmi_hostdev"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
