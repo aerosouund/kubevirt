@@ -346,7 +346,7 @@ if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
-ginko_params="--no-color --seed=42 -focus-file=usb"
+ginko_params="--no-color --seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
