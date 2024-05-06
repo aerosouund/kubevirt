@@ -45,8 +45,6 @@ const (
 	pciBasePath    = "/sys/bus/pci/devices"
 )
 
-type healthFunc func() error
-type registerFunc func()
 type PCIDevice struct {
 	pciID      string
 	driver     string

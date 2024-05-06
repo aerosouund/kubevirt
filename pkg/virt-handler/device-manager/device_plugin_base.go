@@ -57,7 +57,6 @@ type DevicePluginBase struct {
 }
 
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
-	log.DefaultLogger().Infof("ammar: starting device with info : %s, root: %s, path: %s, name: %s", dpi.socketPath, dpi.deviceRoot, dpi.devicePath, dpi.resourceName)
 	dpi.stop = stop
 	if err = dpi.cleanup(); err != nil {
 		return err
@@ -105,8 +104,6 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-	log.DefaultLogger().Infof("ammar: starting list and watch with devices %s", dpi.devs)
-
 	done := false
 	for {
 		select {
