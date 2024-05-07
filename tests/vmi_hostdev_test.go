@@ -3,102 +3,127 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/util"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	pkgUtil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
 	failedDeleteVMI = "Failed to delete VMI"
+	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
 )
 
-var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompute, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-		config     v1.KubeVirtConfiguration
-	)
+var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
+	var virtClient kubecli.KubevirtClient
+	var config v1.KubeVirtConfiguration
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		kv := util.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
+
+		nodeName := tests.NodeNameWithHandler()
+		Expect(nodeName).ToNot(BeEmpty())
+
+		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
+		// oldest sig-compute with test with.
+		// See: https://github.com/kubevirt/project-infra/pull/2922
+		stdout, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
+		Expect(err).ToNot(HaveOccurred())
+		if strings.Count(stdout, "idVendor=46f4") == 0 {
+			Skip("No emulated USB devices present for functional test.")
+		}
+
+		vmi = libvmifact.NewCirros()
 	})
 
 	AfterEach(func() {
-		kv := util.GetCurrentKv(virtClient)
-		// Reinitialized the DeveloperConfiguration to avoid to influence the next test
-		config = kv.Spec.Configuration
-		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-		config.PermittedHostDevices = &v1.PermittedHostDevices{}
-		tests.UpdateKubeVirtConfigValueAndWait(config)
+		// Make sure to delete the VMI before ending the test otherwise a device could still be taken
+		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 	})
 
-	Context("with ephemeral disk", func() {
-		DescribeTable("with emulated PCI devices", func(deviceIDs []string) {
-			deviceName := "example.org/soundcard"
+	Context("with usb storage", func() {
+		DescribeTable("with emulated USB devices", func(deviceNames []string) {
+			const resourceName = "kubevirt.io/usb-storage"
 
-			By("Adding the emulated sound card to the permitted host devices")
+			By("Adding the emulated USB device to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
 				FeatureGates: []string{virtconfig.HostDevicesGate},
-				DiskVerification: &v1.DiskVerification{
-					MemoryLimit: resource.NewScaledQuantity(2, resource.Giga),
-				},
 			}
-			config.PermittedHostDevices = &v1.PermittedHostDevices{}
-			var hostDevs []v1.HostDevice
-			for i, id := range deviceIDs {
-				config.PermittedHostDevices.PciHostDevices = append(config.PermittedHostDevices.PciHostDevices, v1.PciHostDevice{
-					PCIVendorSelector: id,
-					ResourceName:      deviceName,
-				})
-				hostDevs = append(hostDevs, v1.HostDevice{
-					Name:       fmt.Sprintf("sound%d", i),
-					DeviceName: deviceName,
-				})
-				fmt.Println("appended device with id and name", id, deviceName)
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				USB: []v1.USBHostDevice{
+					{
+						ResourceName: resourceName,
+						Selectors: []v1.USBSelector{
+							{
+								Vendor:  "46f4",
+								Product: "0001",
+							}},
+					}},
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			By("Creating a Fedora VMI with the sound card as a host device")
-			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
-			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			By("Creating a Fedora VMI with the usb host device")
+			hostDevs := []v1.HostDevice{}
+			for i, name := range deviceNames {
+				hostDevs = append(hostDevs, v1.HostDevice{
+					Name:       fmt.Sprintf("usb-%d-%s", i, name),
+					DeviceName: resourceName,
+				})
+			}
 
-			By("Making sure the sound card is present inside the VMI")
-			// for _, id := range deviceIDs {
-			// 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			// 		&expect.BSnd{S: "grep -c " + strings.Replace(id, ":", "", 1) + " /proc/bus/pci/devices\n"},
-			// 		&expect.BExp{R: console.RetValue("1")},
-			// 	}, 15)).To(Succeed(), "Device not found")
-			// }
-			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			var err error
+			vmi.Spec.Domain.Devices.HostDevices = hostDevs
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+			By("Making sure the usb is present inside the VMI")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("%s\n", cmdNumberUSBs)},
+				&expect.BExp{R: console.RetValue(fmt.Sprintf("%d", len(deviceNames)))},
+			}, 15)).To(Succeed(), "Device not found")
+
+			By("Verifying ownership is properly set in the host")
+			domainXml, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, hostDevice := range domainXml.Devices.HostDevices {
+				if hostDevice.Type != api.HostDeviceUSB {
+					continue
+				}
+				addr := hostDevice.Source.Address
+				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
+				cmd := []string{"stat", "--printf", `"%u %g"`, path}
+				stdout, err := tests.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stdout).Should(Equal(`"107 107"`))
+			}
 		},
-			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
-			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),
+			Entry("Should successfully passthrough 1 emulated USB device", []string{"slow-storage"}),
+			Entry("Should successfully passthrough 2 emulated USB devices", []string{"fast-storage", "low-storage"}),
 		)
 	})
 })
